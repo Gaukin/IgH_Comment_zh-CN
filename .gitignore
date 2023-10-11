@@ -44,3 +44,4 @@ script/init.d/ethercat
 stamp-h1
 tool/ethercat
 .vscode/
+.vs/
