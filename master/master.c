@@ -2205,12 +2205,14 @@ void ec_master_calc_transmission_delays(
 {
     ec_slave_t *slave;
 
+    // 计算从站每个端口到连接的相邻DC从站的传输延时，不支持的DC从站会被当做线缆传输延时的一部分
     for (slave = master->slaves;
             slave < master->slaves + master->slave_count;
             slave++) {
         ec_slave_calc_port_delays(slave);
     }
-
+    
+    // 如果存在参考时钟，则计算其它从时钟到参考时钟的传输延时
     if (master->dc_ref_clock) {
         uint32_t delay = 0;
         ec_slave_calc_transmission_delays_rec(master->dc_ref_clock, &delay);
@@ -2232,6 +2234,7 @@ void ec_master_calc_dc(
     // 根据ESC通信端口(0~3)的闭合状态来确定总线拓扑链路, 可能是线性拓扑、链型拓扑、树形拓扑等等
     ec_master_calc_topology(master);
 
+    // 
     ec_master_calc_transmission_delays(master);
 }
 

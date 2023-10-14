@@ -945,7 +945,7 @@ void ec_slave_calc_port_delays(
             next_rtt_sum = ec_slave_calc_rtt_sum(next_dc);
 
             slave->ports[port_index].delay_to_next_dc =
-                (rtt - next_rtt_sum) / 2; // FIXME
+                (rtt - next_rtt_sum) / 2;
             next_dc->ports[0].delay_to_next_dc =
                 (rtt - next_rtt_sum) / 2;
 
@@ -981,7 +981,7 @@ void ec_slave_calc_transmission_delays_rec(
 
     while (i != 0) {
         ec_slave_port_t *port = &slave->ports[i];
-        next_dc = ec_slave_find_next_dc_slave(port->next_slave);
+        next_dc = ec_slave_find_next_dc_slave(port->next_slave); // 从参考时钟每个端口开始递归到下一个连接的DC从站的传输延时
         if (next_dc) {
             *delay = *delay + port->delay_to_next_dc;
 #if 0

@@ -787,7 +787,7 @@ void ec_fsm_master_enter_clear_addresses(
 /*****************************************************************************/
 
 /** Master state: CLEAR ADDRESSES.
- *  在成功清除从站地址后开始测量传输延时——将reg0x0900先写0
+ *  在成功清除从站地址后开始测量传输延时
  */
 void ec_fsm_master_state_clear_addresses(
         ec_fsm_master_t *fsm /**< Master state machine. */
@@ -822,7 +822,12 @@ void ec_fsm_master_state_clear_addresses(
             " to measure transmission delays on %s link.\n",
             ec_device_names[fsm->dev_idx != 0]);
 
-    ec_datagram_bwr(datagram, 0x0900, 1); // !FIXME: 为什么是1个字节？
+    // 主站发送一个广播写命令BWR，所有从站会记录数据帧第一个前导位到达每个端口
+    // 时的本地时间，并保存至reg0x0900:0x0904。假如从站只有端口0和1，那么从站
+    // 端口0作为数据帧的接收端口，会记录从主站或前一个从站转发来的数据帧，此时，
+    // reg0x0900会被写入本地时间戳。注意，端口1接收数据帧第一个前导位的到达时间
+    // 是当数据帧返回时，而不是内部转发经过端口1的时间。
+    ec_datagram_bwr(datagram, 0x0900, 1);
     ec_datagram_zero(datagram);
     fsm->datagram->device_index = fsm->dev_idx;
     fsm->retries = EC_FSM_RETRIES;
@@ -870,7 +875,7 @@ void ec_fsm_master_state_dc_measure_delays(
 
     EC_MASTER_INFO(master, "Scanning bus.\n");
 
-    // begin scanning of slaves
+    // 在同步分布时钟前，需要通过扫描确定从站的数量及其间的拓扑链路关系
     fsm->slave = master->slaves;
     EC_MASTER_DBG(master, 1, "Scanning slave %u on %s link.\n",
             fsm->slave->ring_position,
@@ -933,7 +938,9 @@ void ec_fsm_master_state_scan_slave(
     master->scan_busy = 0;
     wake_up_interruptible(&master->scan_queue);
 
-    // 在完成所有从站扫描后开始计算总线拓扑和传输延时
+    // 在完成所有从站扫描后开始计算总线拓扑和传输延时。
+    // 分布时钟的初始化，首先需要测量所有从时钟到参考时钟之间的传输延时，并写入从站的 reg0x0920:0x0927
+    // 只有在测出传输延时后，才能计算从时钟与参考时钟的初始偏移量、每个DC从站的本地时间副本以及时钟偏移补偿。
     ec_master_calc_dc(master);
 
     // Attach slave configurations
@@ -948,6 +955,7 @@ void ec_fsm_master_state_scan_slave(
         master->config_changed = 0;
 
         fsm->slave = master->slaves; // begin with first slave
+        // 将传输延时、初始偏移量写入从站寄存器
         ec_fsm_master_enter_write_system_times(fsm);
     } else {
         ec_fsm_master_restart(fsm);
